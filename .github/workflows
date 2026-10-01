@@ -1,0 +1,57 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    env:
+      PYTHON_VERSION: "3.9"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git zip unzip openjdk-17-jdk autoconf libtool pkg-config \
+            zlib1g-dev libncurses-dev cmake libffi-dev libssl-dev \
+            build-essential ccache
+
+      - name: Clean build cache
+        run: |
+          rm -rf .buildozer
+          rm -rf bin
+          rm -rf ~/.buildozer
+          rm -rf ~/.android
+          rm -rf /tmp/p4a*
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade "pip==23.3.2"
+          python -m pip install --upgrade "setuptools<70" wheel
+          python -m pip install "cython==0.29.36"
+          python -m pip install "buildozer==1.5.0"
+          python -m pip install "python-for-android==2022.7.20"
+
+      - name: Build APK
+        run: |
+          buildozer -v android debug
+
+      - name: Upload APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Color-Willing-APK
+          path: bin/*.apk
+          if-no-files-found: warn
