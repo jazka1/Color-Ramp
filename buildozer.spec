@@ -32,6 +32,11 @@ version = 1.0.1
 # pyjnius dibutuhkan modul android.permissions / android.storage.
 requirements = python3,kivy==2.3.1,pillow,plyer,pyjnius
 
+# Buildozer selalu meng-clone p4a sendiri (versi dari pip diabaikan), jadi versi
+# p4a WAJIB dipin di sini. Tag v2024.01.21 mem-build Python 3.11.5 (cocok dengan
+# Kivy 2.3.1 + Cython 0.29.x). Jangan diganti ke master/2026.x.
+p4a.branch = v2024.01.21
+
 # Icon
 icon.filename = %(source.dir)s/logo.png
 

@@ -83,10 +83,9 @@ jobs:
           path: |
             ~/.buildozer
             ~/.android
-          key: buildozer-${{ runner.os }}-${{ env.P4A_VERSION }}-${{ hashFiles('buildozer.spec') }}
-          restore-keys: |
-            buildozer-${{ runner.os }}-${{ env.P4A_VERSION }}-
-            buildozer-${{ runner.os }}-
+          # Key sengaja tidak memakai hash buildozer.spec supaya cache SDK/NDK
+          # tetap terpakai walau spec sering diubah.
+          key: buildozer-${{ runner.os }}-${{ env.P4A_VERSION }}
 
       - name: Build APK (debug)
         shell: bash
@@ -101,9 +100,9 @@ jobs:
           echo "--- exit code buildozer: $status ---"
           tail -n 60 buildozer.log || true
           if [ "$status" -ne 0 ]; then
-            # Laporkan 30 KB log terakhir sebagai annotation publik supaya bisa
-            # didiagnosa tanpa login: GET /repos/{owner}/{repo}/check-runs/{id}/annotations
-            python3 -c 'import os; t = open("buildozer.log", errors="replace").read() if os.path.exists("buildozer.log") else "log tidak ditemukan"; t = t[-30000:]; print("::error title=Buildozer gagal::" + t.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A"))'
+            # Ringkas log jadi satu annotation publik supaya bisa didiagnosa
+            # tanpa login: GET /repos/{owner}/{repo}/check-runs/{id}/annotations
+            python3 tools/ci_error_report.py
             exit 1
           fi
 
