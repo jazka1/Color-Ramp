@@ -2,9 +2,9 @@
 
 <img src="logo.png" width="120" alt="logo Color Ramp">
 
-Aplikasi Android (Kivy/Python) untuk mencari, mendeteksi, dan menyimpan palet warna
-dari gambar — lengkap dengan kaca pembesar warna (color magnifier), color detector,
-dan tangkapan layar panjang.
+Aplikasi Android menggunakan bahasa Python Kivy untuk mencari, mendeteksi, dan menyimpan palet warna
+dari gambar — lengkap dengan kaca pembesar warna untuk memilih keakuratan warna dengan tersedia slot palet yang tidak terbatas (color magnifier), color detector,
+dan tangkapan layar panjang. kami santat berharap feedback serta saran kalian untuk pengembangan aplikasi ini 😉
 
 [![Build APK](https://github.com/jazka1/Color-Ramp/actions/workflows/build-apk.yml/badge.svg)](https://github.com/jazka1/Color-Ramp/actions/workflows/build-apk.yml)
 
@@ -65,8 +65,11 @@ buildozer -v android debug     # hasil: bin/*.apk
 
 ## Catatan
 
-- APK yang dihasilkan bertipe **debug** (ditandatangani dengan debug key) sehingga
-  bisa langsung dipasang. Untuk Play Store, tambahkan keystore rilis dan gunakan
-  `buildozer android release`.
+- APK ini masih banyak kekurangan dan Bug yang belum terselesaikan namun kami akan terus memperbaiki
+  kekurangan yang ada, kami mengizinkan siapapun untuk ikut berkontribusi dalam pengembangan yang lebih hebat lagi 👍
 - Pada Android 11+ penulisan langsung ke `Pictures/` dibatasi sistem. Aplikasi akan
   otomatis memakai folder privat aplikasi bila folder publik tidak bisa dibuat.
+- APLIKASI INI DI DEDIKASIKAN UNTUK PENDIDIKAN DAN PROFESIONAL SENIMAN
+- KAMI SANGAT MENGECAM SIAPAPUN YANG MENCOBA PERJUAL
+  BELIKAN UNTUK KEPENTINGAN PRIBADI
+- SEMANGAT MENCOBA DAN TERUS BERUSAHA
