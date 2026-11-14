@@ -43,13 +43,13 @@ fullscreen = 0
 android.permissions = READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,READ_MEDIA_IMAGES
 
 # Android API
-# android.api = 34 sesuai syarat Google Play (target SDK minimal 30+).
-# android.ndk TIDAK di-pin ke 25b lagi: buildozer/p4a versi baru memakai NDK 28c
-# (NDK 25b sudah di bawah rekomendasi dan bikin build gagal).
-android.api = 34
+# Nilai di bawah mengikuti rekomendasi python-for-android 2024.1.21
+# (NDK 25b, Python target 3.11.5). Jangan diganti ke NDK 28c selama p4a
+# masih versi 2024.x.
+android.api = 33
 android.minapi = 23
 android.ndk_api = 23
-android.ndk = 28c
+android.ndk = 25b
 
 # Android settings
 android.allow_backup = True

@@ -7,7 +7,6 @@ on:
   pull_request:
   workflow_dispatch:
 
-# Hanya butuh read untuk build; job release menaikkan izinnya sendiri.
 permissions:
   contents: read
 
@@ -16,10 +15,13 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Toolchain modern (p4a 2022.7.20 + buildozer 1.5.0 sudah terlalu tua dan
-  # tidak bisa dipakai di runner terbaru).
-  BUILDOZER_VERSION: "1.6.0"
-  P4A_VERSION: "2026.5.9"
+  # Matriks toolchain yang stabil:
+  #   p4a 2024.1.21  -> mem-build Python 3.11.5 untuk Android + NDK 25b
+  #   Kivy 2.3.1     -> di-compile dengan Cython 0.29.x
+  # Jangan naikkan p4a ke 2026.x: versi itu mem-build Python 3.14 dan
+  # Kivy 2.3.1 gagal di-compile (Cython <=3.0.12 belum mendukung 3.14).
+  BUILDOZER_VERSION: "1.5.0"
+  P4A_VERSION: "2024.1.21"
   PYTHON_VERSION: "3.11"
 
 jobs:
@@ -64,14 +66,13 @@ jobs:
 
       - name: Install buildozer & python-for-android
         run: |
-          python -m pip install --upgrade pip wheel setuptools
+          python -m pip install --upgrade pip wheel "setuptools<70"
           python -m pip install \
             "buildozer==${BUILDOZER_VERSION}" \
             "python-for-android==${P4A_VERSION}"
           buildozer --version
+          python -c "import pythonforandroid, os; print('p4a:', os.path.dirname(pythonforandroid.__file__))"
 
-      # Cache Android SDK/NDK + unduhan recipe. Tanpa cache, tiap run harus
-      # mengunduh ~3 GB dan sering gagal karena timeout.
       - name: Cache Android SDK/NDK
         uses: actions/cache@v4
         with:
@@ -84,7 +85,20 @@ jobs:
             buildozer-${{ runner.os }}-
 
       - name: Build APK (debug)
-        run: buildozer -v android debug
+        shell: bash
+        run: |
+          set -o pipefail
+          buildozer -v android debug 2>&1 | tee buildozer.log
+          status=$?
+          if [ $status -ne 0 ]; then
+            echo "::group::40 baris terakhir log"
+            tail -n 40 buildozer.log || true
+            echo "::endgroup::"
+            # Laporkan error ke annotation publik supaya bisa didiagnosa
+            # tanpa perlu login (GET /check-runs/{id}/annotations).
+            python3 -c 'import os; t = open("buildozer.log", errors="replace").read() if os.path.exists("buildozer.log") else "log tidak ditemukan"; t = t[-30000:]; print("::error title=Buildozer gagal::" + t.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A"))'
+            exit $status
+          fi
 
       - name: Siapkan berkas rilis
         shell: bash
@@ -94,7 +108,8 @@ jobs:
           shopt -s nullglob
           apks=(bin/*.apk)
           if [ ${#apks[@]} -eq 0 ]; then
-            echo "Tidak ada APK yang dihasilkan!" >&2
+            echo "Tidak ada APK yang dihasilkan!"
+            echo "::error title=APK tidak ditemukan::Folder bin/ kosong setelah build selesai."
             exit 1
           fi
           for f in "${apks[@]}"; do
