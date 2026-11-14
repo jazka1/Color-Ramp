@@ -67,10 +67,14 @@ jobs:
       - name: Install buildozer & python-for-android
         run: |
           python -m pip install --upgrade pip wheel "setuptools<70"
+          # buildozer 1.5.0 tidak menarik Cython sebagai dependency, padahal
+          # check_requirements() mewajibkan binary "cython" ada.
+          python -m pip install "cython==0.29.36"
           python -m pip install \
             "buildozer==${BUILDOZER_VERSION}" \
             "python-for-android==${P4A_VERSION}"
           buildozer --version
+          cython --version
           python -c "import pythonforandroid, os; print('p4a:', os.path.dirname(pythonforandroid.__file__))"
 
       - name: Cache Android SDK/NDK
@@ -87,17 +91,20 @@ jobs:
       - name: Build APK (debug)
         shell: bash
         run: |
-          set -o pipefail
+          # GitHub menjalankan bash dengan -e -o pipefail; matikan dulu supaya
+          # kegagalan build tidak langsung menghentikan step sebelum log dicatat.
+          set +e +o pipefail
+          echo "--- buildozer.spec ---"
+          grep -E '^(version|requirements|android\.|source\.)' buildozer.spec
           buildozer -v android debug 2>&1 | tee buildozer.log
-          status=$?
-          if [ $status -ne 0 ]; then
-            echo "::group::40 baris terakhir log"
-            tail -n 40 buildozer.log || true
-            echo "::endgroup::"
-            # Laporkan error ke annotation publik supaya bisa didiagnosa
-            # tanpa perlu login (GET /check-runs/{id}/annotations).
+          status=${PIPESTATUS[0]}
+          echo "--- exit code buildozer: $status ---"
+          tail -n 60 buildozer.log || true
+          if [ "$status" -ne 0 ]; then
+            # Laporkan 30 KB log terakhir sebagai annotation publik supaya bisa
+            # didiagnosa tanpa login: GET /repos/{owner}/{repo}/check-runs/{id}/annotations
             python3 -c 'import os; t = open("buildozer.log", errors="replace").read() if os.path.exists("buildozer.log") else "log tidak ditemukan"; t = t[-30000:]; print("::error title=Buildozer gagal::" + t.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A"))'
-            exit $status
+            exit 1
           fi
 
       - name: Siapkan berkas rilis
