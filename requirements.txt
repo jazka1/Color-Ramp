@@ -1,2 +1,4 @@
-buildozer==1.5.8
-Cython==0.29.36
+# Toolchain yang dipakai CI (.github/workflows/build-apk.yml)
+# Pasang di Linux/macOS/WSL, bukan di Windows langsung (buildozer butuh Linux).
+buildozer==1.6.0
+python-for-android==2026.5.9

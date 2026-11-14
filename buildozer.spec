@@ -16,13 +16,21 @@ source.dir = .
 source.include_exts = py,png,jpg,jpeg,kv,atlas,ttf,otf,json
 
 # (list) List of exclusions
-source.exclude_dirs = .buildozer,bin,venv,__pycache__
+source.exclude_dirs = .buildozer,bin,dist,build,.git,.github,.venv,venv,__pycache__,.idea
+
+# (list) Pattern (glob) yang tidak perlu ikut dibungkus ke dalam APK
+source.exclude_patterns = *.apk,*.aab,*.zip,*.pyc,*.log,*.md
 
 # (str) Application versioning
+# Catatan: kalau workflow dijalankan dari tag (mis. v1.0.2), nilai ini otomatis
+# ditimpa oleh versi tag tersebut.
 version = 1.0.1
 
 # (list) Application requirements
-requirements = python3,kivy,pillow
+# plyer dipakai di main.py (from plyer import filechooser) tapi sebelumnya belum
+# didaftarkan, sehingga APK crash saat memilih folder simpan.
+# pyjnius dibutuhkan modul android.permissions / android.storage.
+requirements = python3,kivy==2.3.1,pillow,plyer,pyjnius
 
 # Icon
 icon.filename = %(source.dir)s/logo.png
@@ -35,13 +43,20 @@ fullscreen = 0
 android.permissions = READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,READ_MEDIA_IMAGES
 
 # Android API
-android.api = 33
-android.minapi = 21
-android.ndk = 25b
+# android.api = 34 sesuai syarat Google Play (target SDK minimal 30+).
+# android.ndk TIDAK di-pin ke 25b lagi: buildozer/p4a versi baru memakai NDK 28c
+# (NDK 25b sudah di bawah rekomendasi dan bikin build gagal).
+android.api = 34
+android.minapi = 23
+android.ndk_api = 23
+android.ndk = 28c
 
 # Android settings
 android.allow_backup = True
-android.manifest.application_attributes = android:requestLegacyExternalStorage="true"
+# Catatan: requestLegacyExternalStorage hanya berlaku untuk targetSdk <= 29,
+# jadi tidak lagi berpengaruh di android.api = 34. Key yang benar (kalau butuh
+# atribut tambahan di <application>) adalah seperti contoh di bawah:
+# android.extra_manifest_application_arguments = android:requestLegacyExternalStorage="true"
 
 # Architectures
 android.archs = arm64-v8a, armeabi-v7a
@@ -50,21 +65,6 @@ android.archs = arm64-v8a, armeabi-v7a
 android.accept_sdk_license = True
 
 [buildozer]
-
-# **PENTING: Ini yang sering menyebab error kalau salah**
-# Gunakan Python 3.9 untuk p4a, bukan 3.10 atau 3.11
-python_version = 3.9
-android.p4a_python_version = 3.9
-
-# **PENTING: Gunakan p4a release yang sudah stable**
-# Jangan gunakan 2022.7.20, gunakan yang lebih lama
-android.p4a_release = 2022.7.20
-
-# Gradle dependencies
-android.gradle_dependencies = 
-
-# Accept SDK license
-android.accept_sdk_license = True
 
 # Logging
 log_level = 2

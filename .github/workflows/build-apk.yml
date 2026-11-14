@@ -2,56 +2,133 @@ name: Build APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
   workflow_dispatch:
+
+# Hanya butuh read untuk build; job release menaikkan izinnya sendiri.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Toolchain modern (p4a 2022.7.20 + buildozer 1.5.0 sudah terlalu tua dan
+  # tidak bisa dipakai di runner terbaru).
+  BUILDOZER_VERSION: "1.6.0"
+  P4A_VERSION: "2026.5.9"
+  PYTHON_VERSION: "3.11"
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
-    env:
-      PYTHON_VERSION: "3.9"
+    name: Build APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python 3.9
+      - name: Sinkronkan versi dari tag
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="$(grep -E '^version *=' buildozer.spec | head -n1 | cut -d= -f2 | tr -d '[:space:]')"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          sed -i -E "s/^version *=.*/version = ${VERSION}/" buildozer.spec
+          echo "Versi yang dipakai: $VERSION"
+          grep -E '^version *=' buildozer.spec
+
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install system dependencies
+      - name: Install dependensi sistem
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            git zip unzip openjdk-17-jdk autoconf libtool pkg-config \
-            zlib1g-dev libncurses-dev cmake libffi-dev libssl-dev \
-            build-essential ccache
+          sudo apt-get install -y --no-install-recommends \
+            autoconf automake build-essential ccache cmake gettext git \
+            libffi-dev libltdl-dev libssl-dev libtool openjdk-17-jdk \
+            patch pkg-config python3-pip python3-setuptools python3-venv \
+            unzip zip zlib1g-dev
+          java -version
 
-      - name: Clean build cache
+      - name: Install buildozer & python-for-android
         run: |
-          rm -rf .buildozer
-          rm -rf bin
-          rm -rf ~/.buildozer
-          rm -rf ~/.android
-          rm -rf /tmp/p4a*
+          python -m pip install --upgrade pip wheel setuptools
+          python -m pip install \
+            "buildozer==${BUILDOZER_VERSION}" \
+            "python-for-android==${P4A_VERSION}"
+          buildozer --version
 
-      - name: Install build tools
+      # Cache Android SDK/NDK + unduhan recipe. Tanpa cache, tiap run harus
+      # mengunduh ~3 GB dan sering gagal karena timeout.
+      - name: Cache Android SDK/NDK
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.buildozer
+            ~/.android
+          key: buildozer-${{ runner.os }}-${{ env.P4A_VERSION }}-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            buildozer-${{ runner.os }}-${{ env.P4A_VERSION }}-
+            buildozer-${{ runner.os }}-
+
+      - name: Build APK (debug)
+        run: buildozer -v android debug
+
+      - name: Siapkan berkas rilis
+        shell: bash
         run: |
-          python -m pip install --upgrade "pip==23.3.2"
-          python -m pip install --upgrade "setuptools<70" wheel
-          python -m pip install "cython==0.29.36"
-          python -m pip install "buildozer==1.5.0"
-          python -m pip install "python-for-android==2022.7.20"
+          set -euo pipefail
+          mkdir -p dist
+          shopt -s nullglob
+          apks=(bin/*.apk)
+          if [ ${#apks[@]} -eq 0 ]; then
+            echo "Tidak ada APK yang dihasilkan!" >&2
+            exit 1
+          fi
+          for f in "${apks[@]}"; do
+            cp "$f" "dist/Color-Willing-${{ steps.version.outputs.version }}-debug.apk"
+          done
+          ls -lh dist
 
-      - name: Build APK
-        run: |
-          buildozer -v android debug
-
-      - name: Upload APK
-        if: always()
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Color-Willing-APK
-          path: bin/*.apk
-          if-no-files-found: warn
+          name: Color-Willing-apk
+          path: dist/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Color-Willing-apk
+          path: dist
+
+      - name: Buat / perbarui Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Color Willing ${{ github.ref_name }}
+          files: dist/*.apk
+          generate_release_notes: true
+          fail_on_unmatched_files: true
